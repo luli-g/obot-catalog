@@ -1,0 +1,32 @@
+name: Firecrawl MCP (self-hosted)
+entryKey: obot-firecrawl-mcp-selfhosted
+serverUserType: singleUser
+shortDescription: Run Firecrawl MCP locally via npx (self-hosted)
+description: |
+  Self-hosted MCP server via npx.
+
+metadata:
+  categories: Developer Tools
+  repoURL: https://github.com/firecrawl/firecrawl-mcp-server
+
+env:
+  - key: FIRECRAWL_API_URL
+    name: Firecrawl API URL
+    required: true
+    sensitive: false
+    description: URL of your self-hosted Firecrawl API.
+  - key: FIRECRAWL_API_KEY
+    name: Firecrawl API Key
+    required: false
+    sensitive: true
+    description: Firecrawl API key (optional).
+
+runtime: local
+localConfig:
+  command: npx
+  args:
+    - "-y"
+    - "firecrawl-mcp"
+  env:
+    - key: FIRECRAWL_API_URL
+    - key: FIRECRAWL_API_KEY
