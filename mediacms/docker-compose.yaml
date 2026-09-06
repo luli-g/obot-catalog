@@ -51,6 +51,10 @@ configs:
       SESSION_COOKIE_SECURE = FRONTEND_HOST.startswith("https")
       CSRF_COOKIE_SECURE = SESSION_COOKIE_SECURE
 
+      # --- Sichtbarkeit: Portal nur fuer angemeldete Benutzer, Uploads privat ---
+      GLOBAL_LOGIN_REQUIRED = os.getenv("GLOBAL_LOGIN_REQUIRED", "True") == "True"
+      PORTAL_WORKFLOW = os.getenv("PORTAL_WORKFLOW", "private")
+
       # --- Selbstregistrierung per E-Mail (Standard: aus) ---
       USERS_CAN_SELF_REGISTER = os.getenv("USERS_CAN_SELF_REGISTER", "False") == "True"
 
@@ -180,6 +184,8 @@ services:
       - 'OIDC_CLIENT_ID=${OIDC_CLIENT_ID}'
       - 'OIDC_CLIENT_SECRET=${OIDC_CLIENT_SECRET}'
       - 'USERS_CAN_SELF_REGISTER=${USERS_CAN_SELF_REGISTER:-False}'
+      - 'GLOBAL_LOGIN_REQUIRED=${GLOBAL_LOGIN_REQUIRED:-True}'
+      - 'PORTAL_WORKFLOW=${PORTAL_WORKFLOW:-private}'
       - 'OIDC_DEBUG_LOG=${OIDC_DEBUG_LOG:-False}'
       - 'TZ=${TZ:-Europe/Berlin}'
       - DEBUG=False
@@ -247,6 +253,8 @@ services:
       - 'OIDC_CLIENT_ID=${OIDC_CLIENT_ID}'
       - 'OIDC_CLIENT_SECRET=${OIDC_CLIENT_SECRET}'
       - 'USERS_CAN_SELF_REGISTER=${USERS_CAN_SELF_REGISTER:-False}'
+      - 'GLOBAL_LOGIN_REQUIRED=${GLOBAL_LOGIN_REQUIRED:-True}'
+      - 'PORTAL_WORKFLOW=${PORTAL_WORKFLOW:-private}'
       - 'TZ=${TZ:-Europe/Berlin}'
       - 'ADMIN_USER=${ADMIN_USER:-admin}'
       - 'ADMIN_EMAIL=${ADMIN_EMAIL:-admin@example.com}'
@@ -290,6 +298,8 @@ services:
       - 'OIDC_CLIENT_ID=${OIDC_CLIENT_ID}'
       - 'OIDC_CLIENT_SECRET=${OIDC_CLIENT_SECRET}'
       - 'USERS_CAN_SELF_REGISTER=${USERS_CAN_SELF_REGISTER:-False}'
+      - 'GLOBAL_LOGIN_REQUIRED=${GLOBAL_LOGIN_REQUIRED:-True}'
+      - 'PORTAL_WORKFLOW=${PORTAL_WORKFLOW:-private}'
       - 'TZ=${TZ:-Europe/Berlin}'
       - ENABLE_CELERY_SHORT=yes
       - ENABLE_CELERY_LONG=yes
@@ -332,6 +342,8 @@ services:
       - 'OIDC_CLIENT_ID=${OIDC_CLIENT_ID}'
       - 'OIDC_CLIENT_SECRET=${OIDC_CLIENT_SECRET}'
       - 'USERS_CAN_SELF_REGISTER=${USERS_CAN_SELF_REGISTER:-False}'
+      - 'GLOBAL_LOGIN_REQUIRED=${GLOBAL_LOGIN_REQUIRED:-True}'
+      - 'PORTAL_WORKFLOW=${PORTAL_WORKFLOW:-private}'
       - 'TZ=${TZ:-Europe/Berlin}'
       - ENABLE_CELERY_BEAT=yes
       - ENABLE_CELERY_SHORT=no
