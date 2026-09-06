@@ -94,8 +94,12 @@ services:
       - 'mediacms-media:/home/mediacms.io/mediacms/media_files'
       - 'mediacms-static:/home/mediacms.io/mediacms/static'
     depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
       migrations:
-        condition: service_completed_successfully
+        condition: service_started
     environment:
       - SERVICE_URL_MEDIACMS_80
       - 'FRONTEND_HOST=${SERVICE_URL_MEDIACMS}'
@@ -171,8 +175,12 @@ services:
       - 'mediacms-media:/home/mediacms.io/mediacms/media_files'
       - 'mediacms-static:/home/mediacms.io/mediacms/static'
     depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
       migrations:
-        condition: service_completed_successfully
+        condition: service_started
     environment:
       - 'FRONTEND_HOST=${SERVICE_URL_MEDIACMS}'
       - 'PORTAL_NAME=${PORTAL_NAME:-MediaCMS}'
@@ -206,8 +214,12 @@ services:
       - 'mediacms-media:/home/mediacms.io/mediacms/media_files'
       - 'mediacms-static:/home/mediacms.io/mediacms/static'
     depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
       migrations:
-        condition: service_completed_successfully
+        condition: service_started
     environment:
       - 'FRONTEND_HOST=${SERVICE_URL_MEDIACMS}'
       - 'PORTAL_NAME=${PORTAL_NAME:-MediaCMS}'

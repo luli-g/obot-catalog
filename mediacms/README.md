@@ -19,6 +19,9 @@ authentik unter `https://apps.funke-service.com`.
 
 - `mediacms` – nginx und gunicorn, erhält die Domain (Container-Port 80).
 - `migrations` – Einmal-Container: `migrate`, Fixtures, Admin-Anlage, `collectstatic`.
+  Die übrigen Dienste warten nur auf dessen Start, nicht auf dessen Ende; ein Warten auf
+  den Abschluss (`service_completed_successfully`) hält die Container beim reinen Starten
+  eines gestoppten Stacks dauerhaft im Zustand „starting".
 - `celery-worker` / `celery-beat` – Transkodierung und geplante Aufgaben.
 - `db`, `redis` – nur intern erreichbar, mit Healthcheck.
 
