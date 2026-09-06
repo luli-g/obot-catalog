@@ -1,0 +1,265 @@
+configs:
+  mediacms_local_settings:
+    content: |
+      import os
+
+      FRONTEND_HOST = os.getenv('FRONTEND_HOST', 'http://localhost')
+      PORTAL_NAME = os.getenv('PORTAL_NAME', 'MediaCMS')
+      REDIS_LOCATION = os.getenv('REDIS_LOCATION', 'redis://redis:6379/1')
+
+      DATABASES = {
+          "default": {
+              "ENGINE": "django.db.backends.postgresql",
+              "NAME": os.getenv('POSTGRES_NAME', 'mediacms'),
+              "HOST": os.getenv('POSTGRES_HOST', 'db'),
+              "PORT": os.getenv('POSTGRES_PORT', '5432'),
+              "USER": os.getenv('POSTGRES_USER', 'mediacms'),
+              "PASSWORD": os.getenv('POSTGRES_PASSWORD', 'mediacms'),
+              "OPTIONS": {
+                  "pool": {
+                      "min_size": 2,
+                      "max_size": 8,
+                      "timeout": 10,
+                      "max_lifetime": 30 * 60,
+                      "max_idle": 10 * 60,
+                  }
+              },
+          }
+      }
+
+      CACHES = {
+          "default": {
+              "BACKEND": "django_redis.cache.RedisCache",
+              "LOCATION": REDIS_LOCATION,
+              "OPTIONS": {
+                  "CLIENT_CLASS": "django_redis.client.DefaultClient",
+              },
+          }
+      }
+
+      BROKER_URL = REDIS_LOCATION
+      CELERY_RESULT_BACKEND = BROKER_URL
+
+      MP4HLS_COMMAND = "/home/mediacms.io/bento4/bin/mp4hls"
+
+      DEBUG = os.getenv('DEBUG', 'False') == 'True'
+
+      # --- Betrieb hinter dem Coolify-Proxy (Traefik terminiert TLS) ---
+      SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+      USE_X_FORWARDED_HOST = True
+      CSRF_TRUSTED_ORIGINS = [FRONTEND_HOST]
+      SESSION_COOKIE_SECURE = FRONTEND_HOST.startswith("https")
+      CSRF_COOKIE_SECURE = SESSION_COOKIE_SECURE
+
+      # --- OpenID Connect (authentik) ueber django-allauth ---
+      from cms.settings import INSTALLED_APPS  # noqa: E402
+
+      INSTALLED_APPS = INSTALLED_APPS + ["allauth.socialaccount.providers.openid_connect"]
+
+      SOCIALACCOUNT_PROVIDERS = {
+          "openid_connect": {
+              "OAUTH_PKCE_ENABLED": True,
+              "APPS": [
+                  {
+                      "provider_id": os.getenv("OIDC_PROVIDER_ID", "authentik"),
+                      "name": os.getenv("OIDC_PROVIDER_NAME", "authentik"),
+                      "client_id": os.getenv("OIDC_CLIENT_ID", ""),
+                      "secret": os.getenv("OIDC_CLIENT_SECRET", ""),
+                      "settings": {
+                          "server_url": os.getenv("OIDC_SERVER_URL", ""),
+                      },
+                  }
+              ],
+          }
+      }
+
+      SOCIALACCOUNT_AUTO_SIGNUP = True
+      SOCIALACCOUNT_EMAIL_AUTHENTICATION = True
+      SOCIALACCOUNT_EMAIL_AUTHENTICATION_AUTO_CONNECT = True
+      SOCIALACCOUNT_STORE_TOKENS = False
+
+services:
+  mediacms:
+    image: 'mediacms/mediacms:latest'
+    configs:
+      - source: mediacms_local_settings
+        target: /home/mediacms.io/mediacms/deploy/docker/local_settings.py
+    volumes:
+      - 'mediacms-media:/home/mediacms.io/mediacms/media_files'
+      - 'mediacms-static:/home/mediacms.io/mediacms/static'
+    depends_on:
+      migrations:
+        condition: service_completed_successfully
+    environment:
+      - SERVICE_URL_MEDIACMS_80
+      - 'FRONTEND_HOST=${SERVICE_URL_MEDIACMS}'
+      - 'PORTAL_NAME=${PORTAL_NAME:-MediaCMS}'
+      - 'SECRET_KEY=${SERVICE_BASE64_64_MEDIACMS}'
+      - 'POSTGRES_HOST=db'
+      - 'POSTGRES_PORT=5432'
+      - 'POSTGRES_NAME=${POSTGRES_DATABASE:-mediacms}'
+      - 'POSTGRES_USER=${SERVICE_USER_POSTGRES}'
+      - 'POSTGRES_PASSWORD=${SERVICE_PASSWORD_POSTGRES}'
+      - 'REDIS_LOCATION=redis://:${SERVICE_PASSWORD_64_REDIS}@redis:6379/1'
+      - 'OIDC_PROVIDER_ID=${OIDC_PROVIDER_ID:-authentik}'
+      - 'OIDC_PROVIDER_NAME=${OIDC_PROVIDER_NAME:-authentik}'
+      - 'OIDC_SERVER_URL=${OIDC_SERVER_URL:?}'
+      - 'OIDC_CLIENT_ID=${OIDC_CLIENT_ID:?}'
+      - 'OIDC_CLIENT_SECRET=${OIDC_CLIENT_SECRET:?}'
+      - 'TZ=${TZ:-Europe/Berlin}'
+      - DEBUG=False
+      - ENABLE_UWSGI=yes
+      - ENABLE_NGINX=yes
+      - ENABLE_MIGRATIONS=no
+      - ENABLE_CELERY_BEAT=no
+      - ENABLE_CELERY_SHORT=no
+      - ENABLE_CELERY_LONG=no
+    healthcheck:
+      disable: true
+  migrations:
+    image: 'mediacms/mediacms:latest'
+    command: './deploy/docker/prestart.sh'
+    exclude_from_hc: true
+    configs:
+      - source: mediacms_local_settings
+        target: /home/mediacms.io/mediacms/deploy/docker/local_settings.py
+    volumes:
+      - 'mediacms-media:/home/mediacms.io/mediacms/media_files'
+      - 'mediacms-static:/home/mediacms.io/mediacms/static'
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      - 'FRONTEND_HOST=${SERVICE_URL_MEDIACMS}'
+      - 'PORTAL_NAME=${PORTAL_NAME:-MediaCMS}'
+      - 'SECRET_KEY=${SERVICE_BASE64_64_MEDIACMS}'
+      - 'POSTGRES_HOST=db'
+      - 'POSTGRES_PORT=5432'
+      - 'POSTGRES_NAME=${POSTGRES_DATABASE:-mediacms}'
+      - 'POSTGRES_USER=${SERVICE_USER_POSTGRES}'
+      - 'POSTGRES_PASSWORD=${SERVICE_PASSWORD_POSTGRES}'
+      - 'REDIS_LOCATION=redis://:${SERVICE_PASSWORD_64_REDIS}@redis:6379/1'
+      - 'OIDC_PROVIDER_ID=${OIDC_PROVIDER_ID:-authentik}'
+      - 'OIDC_PROVIDER_NAME=${OIDC_PROVIDER_NAME:-authentik}'
+      - 'OIDC_SERVER_URL=${OIDC_SERVER_URL:?}'
+      - 'OIDC_CLIENT_ID=${OIDC_CLIENT_ID:?}'
+      - 'OIDC_CLIENT_SECRET=${OIDC_CLIENT_SECRET:?}'
+      - 'TZ=${TZ:-Europe/Berlin}'
+      - 'ADMIN_USER=${ADMIN_USER:-admin}'
+      - 'ADMIN_EMAIL=${ADMIN_EMAIL:-admin@example.com}'
+      - 'ADMIN_PASSWORD=${SERVICE_PASSWORD_ADMIN}'
+      - ENABLE_MIGRATIONS=yes
+      - ENABLE_UWSGI=no
+      - ENABLE_NGINX=no
+      - ENABLE_CELERY_BEAT=no
+      - ENABLE_CELERY_SHORT=no
+      - ENABLE_CELERY_LONG=no
+  celery-worker:
+    image: 'mediacms/mediacms:latest'
+    configs:
+      - source: mediacms_local_settings
+        target: /home/mediacms.io/mediacms/deploy/docker/local_settings.py
+    volumes:
+      - 'mediacms-media:/home/mediacms.io/mediacms/media_files'
+      - 'mediacms-static:/home/mediacms.io/mediacms/static'
+    depends_on:
+      migrations:
+        condition: service_completed_successfully
+    environment:
+      - 'FRONTEND_HOST=${SERVICE_URL_MEDIACMS}'
+      - 'PORTAL_NAME=${PORTAL_NAME:-MediaCMS}'
+      - 'SECRET_KEY=${SERVICE_BASE64_64_MEDIACMS}'
+      - 'POSTGRES_HOST=db'
+      - 'POSTGRES_PORT=5432'
+      - 'POSTGRES_NAME=${POSTGRES_DATABASE:-mediacms}'
+      - 'POSTGRES_USER=${SERVICE_USER_POSTGRES}'
+      - 'POSTGRES_PASSWORD=${SERVICE_PASSWORD_POSTGRES}'
+      - 'REDIS_LOCATION=redis://:${SERVICE_PASSWORD_64_REDIS}@redis:6379/1'
+      - 'OIDC_PROVIDER_ID=${OIDC_PROVIDER_ID:-authentik}'
+      - 'OIDC_PROVIDER_NAME=${OIDC_PROVIDER_NAME:-authentik}'
+      - 'OIDC_SERVER_URL=${OIDC_SERVER_URL:?}'
+      - 'OIDC_CLIENT_ID=${OIDC_CLIENT_ID:?}'
+      - 'OIDC_CLIENT_SECRET=${OIDC_CLIENT_SECRET:?}'
+      - 'TZ=${TZ:-Europe/Berlin}'
+      - ENABLE_CELERY_SHORT=yes
+      - ENABLE_CELERY_LONG=yes
+      - ENABLE_CELERY_BEAT=no
+      - ENABLE_UWSGI=no
+      - ENABLE_NGINX=no
+      - ENABLE_MIGRATIONS=no
+    healthcheck:
+      disable: true
+  celery-beat:
+    image: 'mediacms/mediacms:latest'
+    configs:
+      - source: mediacms_local_settings
+        target: /home/mediacms.io/mediacms/deploy/docker/local_settings.py
+    volumes:
+      - 'mediacms-media:/home/mediacms.io/mediacms/media_files'
+      - 'mediacms-static:/home/mediacms.io/mediacms/static'
+    depends_on:
+      migrations:
+        condition: service_completed_successfully
+    environment:
+      - 'FRONTEND_HOST=${SERVICE_URL_MEDIACMS}'
+      - 'PORTAL_NAME=${PORTAL_NAME:-MediaCMS}'
+      - 'SECRET_KEY=${SERVICE_BASE64_64_MEDIACMS}'
+      - 'POSTGRES_HOST=db'
+      - 'POSTGRES_PORT=5432'
+      - 'POSTGRES_NAME=${POSTGRES_DATABASE:-mediacms}'
+      - 'POSTGRES_USER=${SERVICE_USER_POSTGRES}'
+      - 'POSTGRES_PASSWORD=${SERVICE_PASSWORD_POSTGRES}'
+      - 'REDIS_LOCATION=redis://:${SERVICE_PASSWORD_64_REDIS}@redis:6379/1'
+      - 'OIDC_PROVIDER_ID=${OIDC_PROVIDER_ID:-authentik}'
+      - 'OIDC_PROVIDER_NAME=${OIDC_PROVIDER_NAME:-authentik}'
+      - 'OIDC_SERVER_URL=${OIDC_SERVER_URL:?}'
+      - 'OIDC_CLIENT_ID=${OIDC_CLIENT_ID:?}'
+      - 'OIDC_CLIENT_SECRET=${OIDC_CLIENT_SECRET:?}'
+      - 'TZ=${TZ:-Europe/Berlin}'
+      - ENABLE_CELERY_BEAT=yes
+      - ENABLE_CELERY_SHORT=no
+      - ENABLE_CELERY_LONG=no
+      - ENABLE_UWSGI=no
+      - ENABLE_NGINX=no
+      - ENABLE_MIGRATIONS=no
+    healthcheck:
+      disable: true
+  db:
+    image: 'postgres:17.2-alpine'
+    volumes:
+      - 'mediacms-postgres-data:/var/lib/postgresql/data'
+    environment:
+      - 'POSTGRES_USER=${SERVICE_USER_POSTGRES}'
+      - 'POSTGRES_PASSWORD=${SERVICE_PASSWORD_POSTGRES}'
+      - 'POSTGRES_DB=${POSTGRES_DATABASE:-mediacms}'
+      - 'TZ=${TZ:-Europe/Berlin}'
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}'
+      interval: 10s
+      timeout: 5s
+      retries: 10
+  redis:
+    image: 'redis:alpine'
+    command:
+      - redis-server
+      - '--requirepass'
+      - '${SERVICE_PASSWORD_64_REDIS}'
+      - '--save'
+      - '60'
+      - '1'
+    volumes:
+      - 'mediacms-redis-data:/data'
+    healthcheck:
+      test:
+        - CMD
+        - redis-cli
+        - '-a'
+        - '${SERVICE_PASSWORD_64_REDIS}'
+        - PING
+      interval: 10s
+      timeout: 5s
+      retries: 10
