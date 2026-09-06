@@ -84,6 +84,18 @@ configs:
           SOCIALACCOUNT_EMAIL_AUTHENTICATION_AUTO_CONNECT = True
           SOCIALACCOUNT_STORE_TOKENS = False
 
+      # --- Fehlersuche: OIDC_DEBUG_LOG=True schreibt allauth-Fehler in das Containerlog ---
+      if os.getenv("OIDC_DEBUG_LOG", "False") == "True":
+          LOGGING = {
+              "version": 1,
+              "disable_existing_loggers": False,
+              "handlers": {"console": {"class": "logging.StreamHandler"}},
+              "loggers": {
+                  "allauth": {"handlers": ["console"], "level": "DEBUG", "propagate": False},
+                  "django.request": {"handlers": ["console"], "level": "DEBUG", "propagate": False},
+              },
+          }
+
 services:
   mediacms:
     image: 'mediacms/mediacms:latest'
@@ -116,6 +128,7 @@ services:
       - 'OIDC_SERVER_URL=${OIDC_SERVER_URL:-https://apps.funke-service.com/application/o/mediacms/.well-known/openid-configuration}'
       - 'OIDC_CLIENT_ID=${OIDC_CLIENT_ID}'
       - 'OIDC_CLIENT_SECRET=${OIDC_CLIENT_SECRET}'
+      - 'OIDC_DEBUG_LOG=${OIDC_DEBUG_LOG:-False}'
       - 'TZ=${TZ:-Europe/Berlin}'
       - DEBUG=False
       - ENABLE_UWSGI=yes
