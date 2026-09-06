@@ -141,7 +141,30 @@ services:
       disable: true
   migrations:
     image: 'mediacms/mediacms:latest'
-    command: './deploy/docker/prestart.sh'
+    command:
+      - /bin/bash
+      - '-c'
+      - |
+        set -e
+        ./deploy/docker/prestart.sh
+        # media_files steht in der .dockerignore von MediaCMS, die Standardbilder
+        # fehlen daher im Image und werden einmalig in das Volume geladen.
+        python - <<'SEED'
+        import os, urllib.request
+        base = "https://raw.githubusercontent.com/mediacms-io/mediacms/main/media_files/userlogos/"
+        target = "/home/mediacms.io/mediacms/media_files/userlogos"
+        os.makedirs(target, exist_ok=True)
+        for name in ("user.jpg", "poster_audio.jpg", "banner.jpg"):
+            path = os.path.join(target, name)
+            if os.path.exists(path):
+                continue
+            try:
+                urllib.request.urlretrieve(base + name, path)
+                print("seeded", path)
+            except Exception as exc:
+                print("could not seed", name, exc)
+        SEED
+        chown -R www-data:www-data /home/mediacms.io/mediacms/media_files/userlogos
     exclude_from_hc: true
     configs:
       - source: mediacms_local_settings
