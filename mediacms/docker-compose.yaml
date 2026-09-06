@@ -54,6 +54,8 @@ configs:
       # --- Sichtbarkeit: Portal nur fuer angemeldete Benutzer, Uploads privat ---
       GLOBAL_LOGIN_REQUIRED = os.getenv("GLOBAL_LOGIN_REQUIRED", "True") == "True"
       PORTAL_WORKFLOW = os.getenv("PORTAL_WORKFLOW", "private")
+      # Nicht angemeldete Aufrufe werden auf die Anmeldeseite umgeleitet.
+      LOGIN_URL = "/accounts/login/"
 
       # --- Selbstregistrierung per E-Mail (Standard: aus) ---
       USERS_CAN_SELF_REGISTER = os.getenv("USERS_CAN_SELF_REGISTER", "False") == "True"
