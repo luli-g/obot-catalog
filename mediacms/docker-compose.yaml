@@ -79,6 +79,7 @@ configs:
               }
           }
 
+          SOCIALACCOUNT_LOGIN_ON_GET = True
           SOCIALACCOUNT_AUTO_SIGNUP = True
           SOCIALACCOUNT_EMAIL_AUTHENTICATION = True
           SOCIALACCOUNT_EMAIL_AUTHENTICATION_AUTO_CONNECT = True
@@ -96,12 +97,43 @@ configs:
               },
           }
 
+  mediacms_login_template:
+    content: |
+      {% extends "base.html" %}
+
+      {% block headtitle %} | Sign In{% endblock headtitle %}
+
+      {% block innercontent %}
+      <div class="user-action-form-wrap">
+          <div class="user-action-form-inner">
+
+              <h1>Sign In</h1>
+
+              <p><a class="primaryAction" href="/accounts/oidc/authentik/login/">Anmelden mit authentik</a></p>
+
+              <p>If you have not created an account yet, then please <a href="{{ signup_url }}">sign up</a> first.</p>
+
+              <form class="login" method="POST" action="{% url 'login_system' %}">
+                {% csrf_token %}
+                {{ form.as_p }}
+                {% if redirect_field_value %}
+                <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}" />
+                {% endif %}
+                <button class="primaryAction" type="submit">Sign In</button>
+              </form>
+
+          </div>
+      </div>
+      {% endblock innercontent %}
+
 services:
   mediacms:
     image: 'mediacms/mediacms:latest'
     configs:
       - source: mediacms_local_settings
         target: /home/mediacms.io/mediacms/deploy/docker/local_settings.py
+      - source: mediacms_login_template
+        target: /home/mediacms.io/mediacms/templates/account/login.html
     volumes:
       - 'mediacms-media:/home/mediacms.io/mediacms/media_files'
       - 'mediacms-static:/home/mediacms.io/mediacms/static'
