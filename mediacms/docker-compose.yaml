@@ -51,6 +51,9 @@ configs:
       SESSION_COOKIE_SECURE = FRONTEND_HOST.startswith("https")
       CSRF_COOKIE_SECURE = SESSION_COOKIE_SECURE
 
+      # --- Selbstregistrierung per E-Mail (Standard: aus) ---
+      USERS_CAN_SELF_REGISTER = os.getenv("USERS_CAN_SELF_REGISTER", "False") == "True"
+
       # --- OpenID Connect (authentik) ueber django-allauth ---
       # Wird erst aktiv, sobald Client-ID, Secret und Discovery-URL gesetzt sind.
       OIDC_CLIENT_ID = os.getenv("OIDC_CLIENT_ID", "")
@@ -78,6 +81,10 @@ configs:
                   ],
               }
           }
+
+          # Der Standardadapter von allauth koppelt die Anlage von Konten ueber den
+          # Identitaetsanbieter an USERS_CAN_SELF_REGISTER; der eigene Adapter loest das.
+          SOCIALACCOUNT_ADAPTER = "cms.oidc_adapter.OpenSocialAccountAdapter"
 
           SOCIALACCOUNT_LOGIN_ON_GET = True
           SOCIALACCOUNT_AUTO_SIGNUP = True
@@ -111,8 +118,6 @@ configs:
 
               <p><a class="primaryAction" href="/accounts/oidc/authentik/login/">Anmelden mit authentik</a></p>
 
-              <p>If you have not created an account yet, then please <a href="{{ signup_url }}">sign up</a> first.</p>
-
               <form class="login" method="POST" action="{% url 'login_system' %}">
                 {% csrf_token %}
                 {{ form.as_p }}
@@ -126,12 +131,26 @@ configs:
       </div>
       {% endblock innercontent %}
 
+  mediacms_oidc_adapter:
+    content: |
+      from allauth.socialaccount.adapter import DefaultSocialAccountAdapter
+
+
+      class OpenSocialAccountAdapter(DefaultSocialAccountAdapter):
+          """Laesst Konten ueber den Identitaetsanbieter zu, auch wenn die
+          Selbstregistrierung per E-Mail abgeschaltet ist."""
+
+          def is_open_for_signup(self, request, sociallogin):
+              return True
+
 services:
   mediacms:
     image: 'mediacms/mediacms:latest'
     configs:
       - source: mediacms_local_settings
         target: /home/mediacms.io/mediacms/deploy/docker/local_settings.py
+      - source: mediacms_oidc_adapter
+        target: /home/mediacms.io/mediacms/cms/oidc_adapter.py
       - source: mediacms_login_template
         target: /home/mediacms.io/mediacms/templates/account/login.html
     volumes:
@@ -160,6 +179,7 @@ services:
       - 'OIDC_SERVER_URL=${OIDC_SERVER_URL:-https://apps.funke-service.com/application/o/mediacms/.well-known/openid-configuration}'
       - 'OIDC_CLIENT_ID=${OIDC_CLIENT_ID}'
       - 'OIDC_CLIENT_SECRET=${OIDC_CLIENT_SECRET}'
+      - 'USERS_CAN_SELF_REGISTER=${USERS_CAN_SELF_REGISTER:-False}'
       - 'OIDC_DEBUG_LOG=${OIDC_DEBUG_LOG:-False}'
       - 'TZ=${TZ:-Europe/Berlin}'
       - DEBUG=False
@@ -201,6 +221,8 @@ services:
     configs:
       - source: mediacms_local_settings
         target: /home/mediacms.io/mediacms/deploy/docker/local_settings.py
+      - source: mediacms_oidc_adapter
+        target: /home/mediacms.io/mediacms/cms/oidc_adapter.py
     volumes:
       - 'mediacms-media:/home/mediacms.io/mediacms/media_files'
       - 'mediacms-static:/home/mediacms.io/mediacms/static'
@@ -224,6 +246,7 @@ services:
       - 'OIDC_SERVER_URL=${OIDC_SERVER_URL:-https://apps.funke-service.com/application/o/mediacms/.well-known/openid-configuration}'
       - 'OIDC_CLIENT_ID=${OIDC_CLIENT_ID}'
       - 'OIDC_CLIENT_SECRET=${OIDC_CLIENT_SECRET}'
+      - 'USERS_CAN_SELF_REGISTER=${USERS_CAN_SELF_REGISTER:-False}'
       - 'TZ=${TZ:-Europe/Berlin}'
       - 'ADMIN_USER=${ADMIN_USER:-admin}'
       - 'ADMIN_EMAIL=${ADMIN_EMAIL:-admin@example.com}'
@@ -239,6 +262,8 @@ services:
     configs:
       - source: mediacms_local_settings
         target: /home/mediacms.io/mediacms/deploy/docker/local_settings.py
+      - source: mediacms_oidc_adapter
+        target: /home/mediacms.io/mediacms/cms/oidc_adapter.py
     volumes:
       - 'mediacms-media:/home/mediacms.io/mediacms/media_files'
       - 'mediacms-static:/home/mediacms.io/mediacms/static'
@@ -264,6 +289,7 @@ services:
       - 'OIDC_SERVER_URL=${OIDC_SERVER_URL:-https://apps.funke-service.com/application/o/mediacms/.well-known/openid-configuration}'
       - 'OIDC_CLIENT_ID=${OIDC_CLIENT_ID}'
       - 'OIDC_CLIENT_SECRET=${OIDC_CLIENT_SECRET}'
+      - 'USERS_CAN_SELF_REGISTER=${USERS_CAN_SELF_REGISTER:-False}'
       - 'TZ=${TZ:-Europe/Berlin}'
       - ENABLE_CELERY_SHORT=yes
       - ENABLE_CELERY_LONG=yes
@@ -278,6 +304,8 @@ services:
     configs:
       - source: mediacms_local_settings
         target: /home/mediacms.io/mediacms/deploy/docker/local_settings.py
+      - source: mediacms_oidc_adapter
+        target: /home/mediacms.io/mediacms/cms/oidc_adapter.py
     volumes:
       - 'mediacms-media:/home/mediacms.io/mediacms/media_files'
       - 'mediacms-static:/home/mediacms.io/mediacms/static'
@@ -303,6 +331,7 @@ services:
       - 'OIDC_SERVER_URL=${OIDC_SERVER_URL:-https://apps.funke-service.com/application/o/mediacms/.well-known/openid-configuration}'
       - 'OIDC_CLIENT_ID=${OIDC_CLIENT_ID}'
       - 'OIDC_CLIENT_SECRET=${OIDC_CLIENT_SECRET}'
+      - 'USERS_CAN_SELF_REGISTER=${USERS_CAN_SELF_REGISTER:-False}'
       - 'TZ=${TZ:-Europe/Berlin}'
       - ENABLE_CELERY_BEAT=yes
       - ENABLE_CELERY_SHORT=no
