@@ -1,8 +1,11 @@
-# MediaCMS auf Coolify (mit OIDC-Anmeldung über authentik)
+# MediaCMS auf Coolify (vorbereitet für OIDC über authentik)
 
 Stand: September 2026. Grundlage ist das offizielle `docker-compose.yaml` von MediaCMS,
 angepasst an die Coolify-Konventionen (keine Ports, keine Traefik-Labels, Secrets über
 `SERVICE_*`-Magic-Variablen).
+
+Vorgesehene Adressen: MediaCMS unter `https://lernplattform.funke-service.com`,
+authentik unter `https://apps.funke-service.com`.
 
 ## Images
 
@@ -14,54 +17,59 @@ angepasst an die Coolify-Konventionen (keine Ports, keine Traefik-Labels, Secret
 
 ## Aufbau
 
-- `mediacms` – nginx und gunicorn, erhaelt die Domain (Container-Port 80).
+- `mediacms` – nginx und gunicorn, erhält die Domain (Container-Port 80).
 - `migrations` – Einmal-Container: `migrate`, Fixtures, Admin-Anlage, `collectstatic`.
 - `celery-worker` / `celery-beat` – Transkodierung und geplante Aufgaben.
 - `db`, `redis` – nur intern erreichbar, mit Healthcheck.
 
 Die Dienste teilen sich die Volumes `mediacms-media` (Uploads, HLS) und `mediacms-static`
-(Ergebnis von `collectstatic`). Der `SECRET_KEY` wird nicht mehr als Datei geteilt, sondern
-über die Umgebungsvariable `SECRET_KEY` gesetzt.
+(Ergebnis von `collectstatic`). Der `SECRET_KEY` wird nicht als Datei geteilt, sondern über
+die Umgebungsvariable `SECRET_KEY` gesetzt.
 
 Die Datei `cms/local_settings.py` wird vom Entrypoint des Images bei jedem Start aus
 `deploy/docker/local_settings.py` kopiert. Deshalb wird die eigene Konfiguration über den
 Compose-`configs`-Block genau an diesen Pfad gemountet.
 
+## Domain in Coolify
+
+Nach dem Anlegen des Dienstes ist die automatisch erzeugte Domain des Dienstes `mediacms`
+auf `https://lernplattform.funke-service.com:80` zu ändern. Der Port-Suffix `:80` bleibt
+erhalten, er steuert nur die Weiterleitung von Traefik auf den Container-Port. Aus dieser
+Domain speist sich `FRONTEND_HOST` und damit auch `CSRF_TRUSTED_ORIGINS`.
+
 ## Variablen in der Coolify-Oberfläche
 
-Erforderlich (die Bereitstellung startet erst nach dem Setzen):
+Keine Variable blockiert die erste Bereitstellung. Optional sind `PORTAL_NAME`,
+`POSTGRES_DATABASE`, `TZ`, `ADMIN_USER`, `ADMIN_EMAIL`, `OIDC_PROVIDER_ID`
+(Standard `authentik`, Teil der Callback-URL) und `OIDC_PROVIDER_NAME`.
 
-- `OIDC_SERVER_URL` – Discovery-URL, z. B. `https://[authentik-domain]/application/o/mediacms/.well-known/openid-configuration`
-- `OIDC_CLIENT_ID`
-- `OIDC_CLIENT_SECRET`
-
-Optional: `PORTAL_NAME`, `POSTGRES_DATABASE`, `TZ`, `ADMIN_USER`, `ADMIN_EMAIL`,
-`OIDC_PROVIDER_ID` (Standard `authentik`, Teil der Callback-URL), `OIDC_PROVIDER_NAME`.
-
-Von Coolify erzeugt: `SERVICE_USER_POSTGRES`, `SERVICE_PASSWORD_POSTGRES`,
+Von Coolify erzeugt werden `SERVICE_USER_POSTGRES`, `SERVICE_PASSWORD_POSTGRES`,
 `SERVICE_PASSWORD_64_REDIS`, `SERVICE_BASE64_64_MEDIACMS` (Django-`SECRET_KEY`) und
 `SERVICE_PASSWORD_ADMIN` (Kennwort des Portal-Administrators, in der Oberfläche einsehbar).
 
-Coolify vergibt für den Dienst `mediacms` eine Domain nach dem Muster
-`https://mediacms-<uuid>.<wildcard-domain>:80`; der Port-Suffix bleibt beim Umbenennen erhalten.
+## OIDC später aktivieren
 
-## Einrichtung in authentik (2026.8)
+Die Anbindung ist vorbereitet, aber inaktiv: Der Provider wird in der `local_settings.py`
+erst registriert, wenn `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET` und `OIDC_SERVER_URL` gesetzt
+sind. `OIDC_SERVER_URL` ist mit
+`https://apps.funke-service.com/application/o/mediacms/.well-known/openid-configuration`
+vorbelegt; abweichend ist der Wert an den Slug der Application in authentik anzupassen.
+
+Schritte in authentik (2026.8):
 
 1. Provider anlegen: Typ *OAuth2/OpenID Provider*, Client-Typ *Confidential*.
 2. Redirect-URI (Matching-Mode *Strict*):
-   `https://[mediacms-domain]/accounts/oidc/authentik/login/callback/`
+   `https://lernplattform.funke-service.com/accounts/oidc/authentik/login/callback/`
    Bei abweichendem `OIDC_PROVIDER_ID` ist `authentik` im Pfad entsprechend zu ersetzen.
-3. Scopes: `openid`, `email`, `profile`. Signaturschlüssel setzen.
-4. Application anlegen, Slug z. B. `mediacms`, mit dem Provider verbinden.
-5. `OIDC_SERVER_URL` auf die Discovery-URL der Application setzen (siehe oben).
-6. Client-ID und Client-Secret in Coolify eintragen und neu bereitstellen.
+3. Scopes `openid`, `email`, `profile` zuweisen und einen Signaturschlüssel setzen.
+4. Application mit dem Slug `mediacms` anlegen und mit dem Provider verbinden.
+5. Client-ID und Client-Secret in Coolify eintragen und neu bereitstellen.
 
-## Anmeldung
-
-Der Einstiegspunkt lautet `https://[mediacms-domain]/accounts/oidc/authentik/login/`.
-Die Login-Seite von MediaCMS rendert nur das Formular für Benutzername und Kennwort; eine
-Schaltfläche für den OIDC-Anbieter erscheint dort nicht automatisch und wäre über die
-Portal-Anpassung zu ergänzen.
+Der Einstiegspunkt lautet dann
+`https://lernplattform.funke-service.com/accounts/oidc/authentik/login/`. Die Login-Seite
+von MediaCMS rendert nur das Formular für Benutzername und Kennwort; eine Schaltfläche für
+den OIDC-Anbieter erscheint dort nicht automatisch und wäre über die Portal-Anpassung zu
+ergänzen.
 
 Vorhandene Konten werden anhand der Mailadresse verknüpft
 (`SOCIALACCOUNT_EMAIL_AUTHENTICATION`), neue Konten werden ohne Zwischenschritt angelegt
