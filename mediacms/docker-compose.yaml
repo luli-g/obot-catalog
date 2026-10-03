@@ -54,6 +54,8 @@ configs:
       # --- Sichtbarkeit: Portal nur fuer angemeldete Benutzer, Uploads privat ---
       GLOBAL_LOGIN_REQUIRED = os.getenv("GLOBAL_LOGIN_REQUIRED", "True") == "True"
       PORTAL_WORKFLOW = os.getenv("PORTAL_WORKFLOW", "private")
+      # Rechtevergabe ueber Gruppen und Kategorien (RBAC).
+      USE_RBAC = os.getenv("USE_RBAC", "True") == "True"
       # Nicht angemeldete Aufrufe werden auf die Anmeldeseite umgeleitet.
       LOGIN_URL = "/accounts/login/"
 
@@ -188,6 +190,7 @@ services:
       - 'USERS_CAN_SELF_REGISTER=${USERS_CAN_SELF_REGISTER:-False}'
       - 'GLOBAL_LOGIN_REQUIRED=${GLOBAL_LOGIN_REQUIRED:-True}'
       - 'PORTAL_WORKFLOW=${PORTAL_WORKFLOW:-private}'
+      - 'USE_RBAC=${USE_RBAC:-True}'
       - 'OIDC_DEBUG_LOG=${OIDC_DEBUG_LOG:-False}'
       - 'TZ=${TZ:-Europe/Berlin}'
       - DEBUG=False
@@ -257,6 +260,7 @@ services:
       - 'USERS_CAN_SELF_REGISTER=${USERS_CAN_SELF_REGISTER:-False}'
       - 'GLOBAL_LOGIN_REQUIRED=${GLOBAL_LOGIN_REQUIRED:-True}'
       - 'PORTAL_WORKFLOW=${PORTAL_WORKFLOW:-private}'
+      - 'USE_RBAC=${USE_RBAC:-True}'
       - 'TZ=${TZ:-Europe/Berlin}'
       - 'ADMIN_USER=${ADMIN_USER:-admin}'
       - 'ADMIN_EMAIL=${ADMIN_EMAIL:-admin@example.com}'
@@ -302,6 +306,7 @@ services:
       - 'USERS_CAN_SELF_REGISTER=${USERS_CAN_SELF_REGISTER:-False}'
       - 'GLOBAL_LOGIN_REQUIRED=${GLOBAL_LOGIN_REQUIRED:-True}'
       - 'PORTAL_WORKFLOW=${PORTAL_WORKFLOW:-private}'
+      - 'USE_RBAC=${USE_RBAC:-True}'
       - 'TZ=${TZ:-Europe/Berlin}'
       - ENABLE_CELERY_SHORT=yes
       - ENABLE_CELERY_LONG=yes
@@ -346,6 +351,7 @@ services:
       - 'USERS_CAN_SELF_REGISTER=${USERS_CAN_SELF_REGISTER:-False}'
       - 'GLOBAL_LOGIN_REQUIRED=${GLOBAL_LOGIN_REQUIRED:-True}'
       - 'PORTAL_WORKFLOW=${PORTAL_WORKFLOW:-private}'
+      - 'USE_RBAC=${USE_RBAC:-True}'
       - 'TZ=${TZ:-Europe/Berlin}'
       - ENABLE_CELERY_BEAT=yes
       - ENABLE_CELERY_SHORT=no
